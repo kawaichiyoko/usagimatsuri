@@ -3,7 +3,7 @@
   let active='schedule', headerImage='';
   if(q('#syncStatus'))q('#syncStatus').style.display='none';
   document.head.insertAdjacentHTML('beforeend','<style>#openSettings{background:#fff!important}.avatar{border:0!important}</style>');
-  const colorAvatars=()=>document.querySelectorAll('.avatar[style]').forEach(a=>{let m=a.getAttribute('style').match(/background\s*:\s*([^;!]+)/);if(m)a.style.setProperty('background',m[1].trim(),'important')});colorAvatars();setInterval(colorAvatars,400);
+  const colorAvatars=()=>document.querySelectorAll('.avatar[style]').forEach(a=>{let m=a.getAttribute('style').match(/background\s*:\s*([^;!]+)/);if(m)a.style.setProperty('background',m[1].trim(),'important')});colorAvatars();const renderWithAvatarColors=window.render;window.render=()=>{renderWithAvatarColors();colorAvatars()};setInterval(colorAvatars,400);
   q('#openSettings').innerHTML='<span class="setting-book">📖</span>';
   document.head.insertAdjacentHTML('beforeend','<style>.cost-row{display:flex;align-items:center;gap:8px;margin-top:6px}.cost-row input{width:150px!important;max-width:calc(100% - 28px)!important;margin:0!important}@media(max-width:400px){.cost-row input{width:130px!important}}</style>');
   let fluentLibrary=null;import('https://cdn.jsdelivr.net/npm/fluentui-emoji-js@1.2.1/+esm').then(m=>fluentLibrary=m).catch(()=>{});const fluentUrl=e=>`https://cdn.jsdelivr.net/npm/@lobehub/fluent-emoji-3d@latest/assets/${Array.from(e).filter(x=>x!=='\ufe0f').map(x=>x.codePointAt(0).toString(16)).join('-')}.webp`;
