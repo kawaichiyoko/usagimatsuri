@@ -1,6 +1,6 @@
 (()=>{
   const q=s=>document.querySelector(s),trip=()=>SHIORI_CONFIG.tripId;
-  let profiles=[],myProfile=null,privateRows=[],chatRows=[],view='schedule',ready=false;
+  let profiles=[],myProfile=null,privateRows=[],chatRows=[],view='schedule',ready=false,privateSaving=false;
   const legacyId=p=>String(p.legacy_member_id??'');
   const privateEvents=()=>privateRows.map(r=>({...r.data,id:r.data.id,_privateRowId:r.id,personal:true}));
   const profileByUser=id=>profiles.find(p=>p.user_id===id);
@@ -26,12 +26,27 @@
     let {error}=await client.rpc('save_my_shiori_profile',{p_trip_id:trip(),p_legacy_member_id:data.legacy_member_id||'',p_name:data.name,p_emoji:data.emoji,p_color:data.color,p_photo:data.photo||null,p_items:data.items||[],p_memo:data.memo||''});if(error)throw error;
   }
   async function loadPrivate(){let {data,error}=await client.from('shiori_private_events').select('*').eq('trip_id',trip()).order('created_at');if(error)throw error;privateRows=data||[]}
+  async function migrateLegacyPrivateEvents(){
+    if(!myProfile?.legacy_member_id)return;
+    let mine=state.events.filter(e=>e.personal&&e.people?.length===1&&String(e.people[0])===legacyId(myProfile));
+    if(!mine.length)return;
+    for(let [index,event] of mine.entries()){
+      let key=String(event.id),exists=privateRows.some(row=>row.data?.legacyEventId===key);
+      if(exists)continue;
+      let data={...event,id:Date.now()+index,personal:true,legacyEventId:key};delete data._privateRowId;
+      let {error}=await client.from('shiori_private_events').insert({trip_id:trip(),data});if(error)throw error;
+    }
+    state.events=state.events.filter(e=>!mine.some(old=>old.id===e.id));
+    await save();
+    await loadPrivate();
+  }
   window.savePrivateEvent=async(event,editing)=>{
-    if(!myProfile){claimDialog();return false}
+    if(privateSaving)return false;if(!myProfile){claimDialog();return false}
     if(!myProfile.legacy_member_id||String(event.people[0])!==legacyId(myProfile)){showError('個人予定の参加メンバーには、あなた自身を選択してください。');return false}
-    let convertingShared=!!editing&&!editing._privateRowId,data={...event,personal:true};if(convertingShared)data.id=Date.now();delete data._privateRowId;
-    let query=editing?._privateRowId?client.from('shiori_private_events').update({data,updated_at:new Date().toISOString()}).eq('id',editing._privateRowId):client.from('shiori_private_events').insert({trip_id:trip(),data});
-    let {error}=await query;if(error){showError(error.message);return false}if(convertingShared){state.events=state.events.filter(e=>e.id!==editing.id);await save()}await loadPrivate();renderAll();return true;
+    privateSaving=true;try{let convertingShared=!!editing&&!editing._privateRowId,data={...event,personal:true};if(convertingShared)data.id=Date.now();delete data._privateRowId;
+      let query=editing?._privateRowId?client.from('shiori_private_events').update({data,updated_at:new Date().toISOString()}).eq('id',editing._privateRowId):client.from('shiori_private_events').insert({trip_id:trip(),data});
+      let {error}=await query;if(error){showError(error.message);return false}if(convertingShared){state.events=state.events.filter(e=>e.id!==editing.id);await save()}await loadPrivate();renderAll();return true
+    }catch(e){showError(e.message);return false}finally{privateSaving=false}
   };
   window.deletePrivateEvent=async event=>{let {error}=await client.from('shiori_private_events').delete().eq('id',event._privateRowId);if(error){showError(error.message);return false}await loadPrivate();renderAll();return true};
   const inheritedOpen=window.openEvent;window.openEvent=id=>{let event=privateEvents().find(e=>String(e.id)===String(id));if(!event)return inheritedOpen(id);let original=state.events;state.events=[...original,event];inheritedOpen(id);state.events=original};
@@ -51,6 +66,6 @@
     q('#secureChatForm').onsubmit=async e=>{e.preventDefault();if(!myProfile){q('#secureChatDialog').close();claimDialog();return}let text=e.target.text.value.trim();if(!text)return;let {error}=await client.from('shiori_chat_messages').insert({trip_id:trip(),text});if(error)showError(error.message);else{e.target.reset();q('#secureChatDialog').close();await loadChat();renderChat()}};
   }
   function renderAll(){renderSchedule();renderChat();renderMembers();}
-  async function start(){try{await fetchData();install();ready=true;renderAll();claimDialog();client.channel('secure-features').on('postgres_changes',{event:'*',schema:'public',table:'shiori_member_profiles'},async()=>{await loadProfiles();renderMembers();renderChat()}).on('postgres_changes',{event:'*',schema:'public',table:'shiori_chat_messages'},async()=>{await loadChat();if(view==='chat')renderChat()}).on('postgres_changes',{event:'*',schema:'public',table:'shiori_private_events'},async()=>{await loadPrivate();renderSchedule()}).subscribe()}catch(e){console.error(e);showError('新しいデータの読み込みに失敗しました: '+e.message)}}
+  async function start(){try{await fetchData();await migrateLegacyPrivateEvents();install();ready=true;renderAll();claimDialog();client.channel('secure-features').on('postgres_changes',{event:'*',schema:'public',table:'shiori_member_profiles'},async()=>{await loadProfiles();await migrateLegacyPrivateEvents();renderMembers();renderChat();renderSchedule()}).on('postgres_changes',{event:'*',schema:'public',table:'shiori_chat_messages'},async()=>{await loadChat();if(view==='chat')renderChat()}).on('postgres_changes',{event:'*',schema:'public',table:'shiori_private_events'},async()=>{await loadPrivate();renderSchedule()}).subscribe()}catch(e){console.error(e);showError('新しいデータの読み込みに失敗しました: '+e.message)}}
   const wait=setInterval(()=>{if(client&&user){clearInterval(wait);start()}},100);
 })();
