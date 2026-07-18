@@ -1,5 +1,6 @@
 (()=>{
   const q=s=>document.querySelector(s),trip=()=>SHIORI_CONFIG.tripId;
+  window.securePrivateReady=false;
   let profiles=[],myProfile=null,privateRows=[],chatRows=[],view='schedule',ready=false,privateSaving=false;
   const legacyId=p=>String(p.legacy_member_id??'');
   const privateEvents=()=>privateRows.map(r=>({...r.data,id:r.data.id,_privateRowId:r.id,personal:true,_securePrivate:true}));
@@ -66,6 +67,6 @@
     q('#secureChatForm').onsubmit=async e=>{e.preventDefault();if(!myProfile){q('#secureChatDialog').close();claimDialog();return}let text=e.target.text.value.trim();if(!text)return;let {error}=await client.from('shiori_chat_messages').insert({trip_id:trip(),text});if(error)showError(error.message);else{e.target.reset();q('#secureChatDialog').close();await loadChat();renderChat()}};
   }
   function renderAll(){renderSchedule();renderChat();renderMembers();}
-  async function start(){try{await fetchData();await migrateLegacyPrivateEvents();install();ready=true;renderAll();claimDialog();client.channel('secure-features').on('postgres_changes',{event:'*',schema:'public',table:'shiori_member_profiles'},async()=>{await loadProfiles();await migrateLegacyPrivateEvents();renderMembers();renderChat();renderSchedule()}).on('postgres_changes',{event:'*',schema:'public',table:'shiori_chat_messages'},async()=>{await loadChat();if(view==='chat')renderChat()}).on('postgres_changes',{event:'*',schema:'public',table:'shiori_private_events'},async()=>{await loadPrivate();renderSchedule()}).subscribe()}catch(e){console.error(e);showError('新しいデータの読み込みに失敗しました: '+e.message)}}
+  async function start(){try{await fetchData();await migrateLegacyPrivateEvents();install();ready=true;window.securePrivateReady=true;renderAll();claimDialog();client.channel('secure-features').on('postgres_changes',{event:'*',schema:'public',table:'shiori_member_profiles'},async()=>{await loadProfiles();await migrateLegacyPrivateEvents();renderMembers();renderChat();renderSchedule()}).on('postgres_changes',{event:'*',schema:'public',table:'shiori_chat_messages'},async()=>{await loadChat();if(view==='chat')renderChat()}).on('postgres_changes',{event:'*',schema:'public',table:'shiori_private_events'},async()=>{await loadPrivate();renderSchedule()}).subscribe()}catch(e){console.error(e);showError('新しいデータの読み込みに失敗しました: '+e.message)}}
   const wait=setInterval(()=>{if(client&&user){clearInterval(wait);start()}},100);
 })();
