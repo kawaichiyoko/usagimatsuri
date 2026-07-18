@@ -2,7 +2,7 @@
   const q=s=>document.querySelector(s),trip=()=>SHIORI_CONFIG.tripId;
   let profiles=[],myProfile=null,privateRows=[],chatRows=[],view='schedule',ready=false,privateSaving=false;
   const legacyId=p=>String(p.legacy_member_id??'');
-  const privateEvents=()=>privateRows.map(r=>({...r.data,id:r.data.id,_privateRowId:r.id,personal:true}));
+  const privateEvents=()=>privateRows.map(r=>({...r.data,id:r.data.id,_privateRowId:r.id,personal:true,_securePrivate:true}));
   const profileByUser=id=>profiles.find(p=>p.user_id===id);
   const avatarHtml=p=>p?`<span class="avatar" style="background:${p.color}">${p.photo?`<img src="${p.photo}" alt="${esc(p.name)}">`:p.emoji}</span>`:'';
   const ownKey=()=>`shioriPersonalMember:${trip()}:${user?.email||''}`;
