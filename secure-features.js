@@ -30,7 +30,7 @@
     if(!myProfile){claimDialog();return false}
     if(!myProfile.legacy_member_id||String(event.people[0])!==legacyId(myProfile)){showError('個人予定の参加メンバーには、あなた自身を選択してください。');return false}
     let data={...event,personal:true};delete data._privateRowId;
-    let query=editing?client.from('shiori_private_events').update({data,updated_at:new Date().toISOString()}).eq('id',editing._privateRowId):client.from('shiori_private_events').insert({trip_id:trip(),data});
+    let query=editing?._privateRowId?client.from('shiori_private_events').update({data,updated_at:new Date().toISOString()}).eq('id',editing._privateRowId):client.from('shiori_private_events').insert({trip_id:trip(),data});
     let {error}=await query;if(error){showError(error.message);return false}await loadPrivate();renderAll();return true;
   };
   window.deletePrivateEvent=async event=>{let {error}=await client.from('shiori_private_events').delete().eq('id',event._privateRowId);if(error){showError(error.message);return false}await loadPrivate();renderAll();return true};
